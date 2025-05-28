@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
 import { useCart } from "../context/CartContext";
 import { processCheckout } from "../services/api";
 import { useToast } from "../components/ToastProvider";
+import { clearCart } from "../store/slices/cartSlice";
 
 const CheckoutPage = () => {
-  const { cart } = useCart();
+  const { cart: contextCart } = useCart();
+  const reduxCart = useSelector((state) => state.cart);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -32,7 +36,7 @@ const CheckoutPage = () => {
   const [focusedField, setFocusedField] = useState(null);
 
   // Redirect if cart is empty
-  if (!cart.product) {
+  if (reduxCart.items.length === 0 && !contextCart.product) {
     navigate("/");
     return null;
   }
@@ -166,6 +170,27 @@ const CheckoutPage = () => {
 
       const transactionCode = "1";
 
+      // Prepare products array based on which cart is being used
+      let products = [];
+
+      if (reduxCart.items.length > 0) {
+        // Use Redux cart
+        products = reduxCart.items.map((item) => ({
+          productId: item.productId,
+          variant: item.variantName,
+          quantity: item.quantity,
+        }));
+      } else if (contextCart.product) {
+        // Use context cart as fallback
+        products = [
+          {
+            productId: contextCart.product._id,
+            variant: contextCart.variant.name,
+            quantity: contextCart.quantity,
+          },
+        ];
+      }
+
       const checkoutData = {
         customer: {
           name: formData.name,
@@ -175,19 +200,16 @@ const CheckoutPage = () => {
           state: formData.state,
           zipCode: formData.zipCode,
         },
-        products: [
-          {
-            productId: cart.product._id,
-            variant: cart.variant.name,
-            quantity: cart.quantity,
-          },
-        ],
+        products,
         transactionCode,
       };
 
       const response = await processCheckout(checkoutData);
 
       toast.success("Order placed successfully!");
+
+      // Clear the Redux cart
+      dispatch(clearCart());
 
       // Navigate to thank you page with order ID
       setTimeout(() => {
@@ -203,8 +225,18 @@ const CheckoutPage = () => {
   };
 
   // Calculate totals
-  const subtotal = cart.variant.price * cart.quantity;
-  const total = subtotal;
+  let subtotal = 0;
+  let total = 0;
+
+  if (reduxCart.items.length > 0) {
+    // Use Redux cart
+    subtotal = reduxCart.totalAmount;
+    total = subtotal;
+  } else if (contextCart.product) {
+    // Use context cart as fallback
+    subtotal = contextCart.variant.price * contextCart.quantity;
+    total = subtotal;
+  }
 
   return (
     <div className="checkout-page">
@@ -513,18 +545,61 @@ const CheckoutPage = () => {
           </div>
 
           <div className="product-summary">
-            <div className="product-image">
-              <img
-                src={cart.variant.image || "/placeholder.svg"}
-                alt={cart.product.title}
-              />
-            </div>
-            <div className="product-info">
-              <h3>{cart.product.title}</h3>
-              <p className="variant-info">Variant: {cart.variant.name}</p>
-              <p className="quantity-info">Quantity: {cart.quantity}</p>
-              <p className="price-info">${cart.variant.price}</p>
-            </div>
+            {reduxCart.items.length > 0 ? (
+              <>
+                <div className="cart-items-summary">
+                  {reduxCart.items.map((item, index) => (
+                    <div className="cart-item-summary" key={index}>
+                      <div className="product-image">
+                        <img
+                          src={item.image || "/placeholder.svg"}
+                          alt={item.title}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/100";
+                          }}
+                        />
+                      </div>
+                      <div className="product-info">
+                        <h3>{item.title}</h3>
+                        <p className="variant-info">
+                          Variant: {item.variantName}
+                        </p>
+                        <p className="quantity-info">
+                          Quantity: {item.quantity}
+                        </p>
+                        <p className="price-info">${item.price.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : contextCart.product ? (
+              <>
+                <div className="product-image">
+                  <img
+                    src={contextCart.variant.image || "/placeholder.svg"}
+                    alt={contextCart.product.title}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://via.placeholder.com/100";
+                    }}
+                  />
+                </div>
+                <div className="product-info">
+                  <h3>{contextCart.product.title}</h3>
+                  <p className="variant-info">
+                    Variant: {contextCart.variant.name}
+                  </p>
+                  <p className="quantity-info">
+                    Quantity: {contextCart.quantity}
+                  </p>
+                  <p className="price-info">
+                    ${contextCart.variant.price.toFixed(2)}
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
 
           <div className="price-summary">

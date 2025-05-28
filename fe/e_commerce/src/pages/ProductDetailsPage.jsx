@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { getProductById } from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useToast } from "../components/ToastProvider";
+import { addToCart } from "../store/slices/cartSlice";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 const ProductDetailsPage = () => {
@@ -16,8 +18,9 @@ const ProductDetailsPage = () => {
   const [addingToCart, setAddingToCart] = useState(false);
 
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart: addToContextCart } = useCart();
   const { toast } = useToast();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -69,17 +72,44 @@ const ProductDetailsPage = () => {
     }
   };
 
+  const handleAddToCart = () => {
+    if (product && selectedVariant) {
+      setAddingToCart(true);
+      try {
+        dispatch(
+          addToCart({
+            product,
+            variant: selectedVariant,
+            quantity,
+          })
+        );
+        toast.success(`Added ${quantity} item(s) to cart!`);
+      } catch (err) {
+        toast.error(`Failed to add item to cart: ${err}`);
+      } finally {
+        setAddingToCart(false);
+      }
+    }
+  };
+
   const handleBuyNow = async () => {
     if (product && selectedVariant) {
       setAddingToCart(true);
       try {
-        addToCart(product, selectedVariant, quantity);
+        addToContextCart(product, selectedVariant, quantity);
+        dispatch(
+          addToCart({
+            product,
+            variant: selectedVariant,
+            quantity,
+          })
+        );
         toast.success(`Added ${quantity} item(s) to cart!`);
         setTimeout(() => {
           navigate("/checkout");
         }, 500);
       } catch (err) {
-        toast.error(`Failed to add item to cart ${err}`);
+        toast.error(`Failed to add item to cart: ${err}`);
       } finally {
         setAddingToCart(false);
       }
@@ -218,22 +248,45 @@ const ProductDetailsPage = () => {
             </span>
           </div>
 
-          <button
-            className={`buy-now-button ${addingToCart ? "loading" : ""}`}
-            onClick={handleBuyNow}
-            disabled={
-              !selectedVariant || selectedVariant.inventory < 1 || addingToCart
-            }
-          >
-            {addingToCart ? (
-              <>
-                <div className="button-spinner"></div>
-                Adding to Cart...
-              </>
-            ) : (
-              "Buy Now"
-            )}
-          </button>
+          <div className="product-buttons">
+            <button
+              className={`add-to-cart-button ${addingToCart ? "loading" : ""}`}
+              onClick={handleAddToCart}
+              disabled={
+                !selectedVariant ||
+                selectedVariant.inventory < 1 ||
+                addingToCart
+              }
+            >
+              {addingToCart ? (
+                <>
+                  <div className="button-spinner"></div>
+                  Adding...
+                </>
+              ) : (
+                "Add to Cart"
+              )}
+            </button>
+
+            <button
+              className={`buy-now-button ${addingToCart ? "loading" : ""}`}
+              onClick={handleBuyNow}
+              disabled={
+                !selectedVariant ||
+                selectedVariant.inventory < 1 ||
+                addingToCart
+              }
+            >
+              {addingToCart ? (
+                <>
+                  <div className="button-spinner"></div>
+                  Processing...
+                </>
+              ) : (
+                "Buy Now"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
