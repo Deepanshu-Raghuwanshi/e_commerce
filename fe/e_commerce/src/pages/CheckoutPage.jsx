@@ -1,13 +1,17 @@
+"use client";
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { processCheckout } from "../services/api";
+import { useToast } from "../components/ToastProvider";
 
 const CheckoutPage = () => {
   const { cart } = useCart();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { toast } = useToast();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -25,6 +29,7 @@ const CheckoutPage = () => {
 
   // Form validation errors
   const [formErrors, setFormErrors] = useState({});
+  const [focusedField, setFocusedField] = useState(null);
 
   // Redirect if cart is empty
   if (!cart.product) {
@@ -34,9 +39,25 @@ const CheckoutPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // Format specific fields
+    let formattedValue = value;
+    if (name === "cardNumber") {
+      formattedValue = value
+        .replace(/\s/g, "")
+        .replace(/(.{4})/g, "$1 ")
+        .trim();
+    } else if (name === "expiryDate") {
+      formattedValue = value.replace(/\D/g, "").replace(/(\d{2})(\d)/, "$1/$2");
+    } else if (name === "phone") {
+      formattedValue = value
+        .replace(/\D/g, "")
+        .replace(/(\d{3})(\d{3})(\d{4})/, "($1) $2-$3");
+    }
+
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: formattedValue,
     });
 
     // Clear error for this field when user types
@@ -108,7 +129,10 @@ const CheckoutPage = () => {
     } else {
       // Check if date is in the future
       const [month, year] = formData.expiryDate.split("/");
-      const expiryDate = new Date(2000 + parseInt(year), parseInt(month) - 1);
+      const expiryDate = new Date(
+        2000 + Number.parseInt(year),
+        Number.parseInt(month) - 1
+      );
       const currentDate = new Date();
 
       if (expiryDate <= currentDate) {
@@ -130,6 +154,7 @@ const CheckoutPage = () => {
     e.preventDefault();
 
     if (!validateForm()) {
+      toast.error("Please fix the form errors before submitting");
       return;
     }
 
@@ -137,8 +162,8 @@ const CheckoutPage = () => {
     setError(null);
 
     try {
-      // For demo purposes, we'll use transaction code 1 (success)
-      // In a real app, this would come from the payment processor
+      toast.info("Processing your order...");
+
       const transactionCode = "1";
 
       const checkoutData = {
@@ -162,11 +187,16 @@ const CheckoutPage = () => {
 
       const response = await processCheckout(checkoutData);
 
+      toast.success("Order placed successfully!");
+
       // Navigate to thank you page with order ID
-      navigate(`/thank-you?orderId=${response.orderId}`);
+      setTimeout(() => {
+        navigate(`/thank-you?orderId=${response.orderId}`);
+      }, 1000);
     } catch (err) {
       console.error("Checkout error:", err);
       setError("Failed to process checkout. Please try again.");
+      toast.error("Failed to process your order. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -174,198 +204,326 @@ const CheckoutPage = () => {
 
   // Calculate totals
   const subtotal = cart.variant.price * cart.quantity;
-  const total = subtotal; // Add tax, shipping, etc. if needed
+  const total = subtotal;
 
   return (
     <div className="checkout-page">
-      <h1>Checkout</h1>
+      <div className="checkout-header">
+        <h1>Checkout</h1>
+        <div className="progress-bar">
+          <div className="progress-fill"></div>
+        </div>
+      </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message slide-in">
+          <span className="error-icon">⚠️</span>
+          {error}
+        </div>
+      )}
 
       <div className="checkout-container">
         <div className="checkout-form">
           <form onSubmit={handleSubmit}>
-            <h2>Customer Information</h2>
-            <div className="form-group">
-              <label htmlFor="name">Full Name</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className={formErrors.name ? "error" : ""}
-              />
-              {formErrors.name && (
-                <div className="error-text">{formErrors.name}</div>
-              )}
-            </div>
+            <div className="form-section">
+              <h2>
+                <span className="section-number">1</span>
+                Customer Information
+              </h2>
 
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={formErrors.email ? "error" : ""}
-              />
-              {formErrors.email && (
-                <div className="error-text">{formErrors.email}</div>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="phone">Phone Number</label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className={formErrors.phone ? "error" : ""}
-              />
-              {formErrors.phone && (
-                <div className="error-text">{formErrors.phone}</div>
-              )}
-            </div>
-
-            <h2>Shipping Address</h2>
-            <div className="form-group">
-              <label htmlFor="address">Address</label>
-              <input
-                type="text"
-                id="address"
-                name="address"
-                value={formData.address}
-                onChange={handleInputChange}
-                className={formErrors.address ? "error" : ""}
-              />
-              {formErrors.address && (
-                <div className="error-text">{formErrors.address}</div>
-              )}
-            </div>
-
-            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="city">City</label>
+                <label
+                  htmlFor="name"
+                  className={focusedField === "name" ? "focused" : ""}
+                >
+                  Full Name
+                </label>
                 <input
                   type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
+                  id="name"
+                  name="name"
+                  value={formData.name}
                   onChange={handleInputChange}
-                  className={formErrors.city ? "error" : ""}
+                  onFocus={() => setFocusedField("name")}
+                  onBlur={() => setFocusedField(null)}
+                  className={formErrors.name ? "error" : ""}
                 />
-                {formErrors.city && (
-                  <div className="error-text">{formErrors.city}</div>
+                {formErrors.name && (
+                  <div className="error-text slide-in">{formErrors.name}</div>
                 )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="state">State</label>
+                <label
+                  htmlFor="email"
+                  className={focusedField === "email" ? "focused" : ""}
+                >
+                  Email
+                </label>
                 <input
-                  type="text"
-                  id="state"
-                  name="state"
-                  value={formData.state}
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleInputChange}
-                  className={formErrors.state ? "error" : ""}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  className={formErrors.email ? "error" : ""}
                 />
-                {formErrors.state && (
-                  <div className="error-text">{formErrors.state}</div>
+                {formErrors.email && (
+                  <div className="error-text slide-in">{formErrors.email}</div>
                 )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="zipCode">ZIP Code</label>
+                <label
+                  htmlFor="phone"
+                  className={focusedField === "phone" ? "focused" : ""}
+                >
+                  Phone Number
+                </label>
                 <input
-                  type="text"
-                  id="zipCode"
-                  name="zipCode"
-                  value={formData.zipCode}
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleInputChange}
-                  className={formErrors.zipCode ? "error" : ""}
+                  onFocus={() => setFocusedField("phone")}
+                  onBlur={() => setFocusedField(null)}
+                  className={formErrors.phone ? "error" : ""}
+                  placeholder="(123) 456-7890"
                 />
-                {formErrors.zipCode && (
-                  <div className="error-text">{formErrors.zipCode}</div>
+                {formErrors.phone && (
+                  <div className="error-text slide-in">{formErrors.phone}</div>
                 )}
               </div>
             </div>
 
-            <h2>Payment Information</h2>
-            <div className="form-group">
-              <label htmlFor="cardNumber">Card Number</label>
-              <input
-                type="text"
-                id="cardNumber"
-                name="cardNumber"
-                value={formData.cardNumber}
-                onChange={handleInputChange}
-                placeholder="1234 5678 9012 3456"
-                className={formErrors.cardNumber ? "error" : ""}
-              />
-              {formErrors.cardNumber && (
-                <div className="error-text">{formErrors.cardNumber}</div>
-              )}
-            </div>
+            <div className="form-section">
+              <h2>
+                <span className="section-number">2</span>
+                Shipping Address
+              </h2>
 
-            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="expiryDate">Expiry Date</label>
+                <label
+                  htmlFor="address"
+                  className={focusedField === "address" ? "focused" : ""}
+                >
+                  Address
+                </label>
                 <input
                   type="text"
-                  id="expiryDate"
-                  name="expiryDate"
-                  value={formData.expiryDate}
+                  id="address"
+                  name="address"
+                  value={formData.address}
                   onChange={handleInputChange}
-                  placeholder="MM/YY"
-                  className={formErrors.expiryDate ? "error" : ""}
+                  onFocus={() => setFocusedField("address")}
+                  onBlur={() => setFocusedField(null)}
+                  className={formErrors.address ? "error" : ""}
                 />
-                {formErrors.expiryDate && (
-                  <div className="error-text">{formErrors.expiryDate}</div>
+                {formErrors.address && (
+                  <div className="error-text slide-in">
+                    {formErrors.address}
+                  </div>
                 )}
               </div>
 
+              <div className="form-row">
+                <div className="form-group">
+                  <label
+                    htmlFor="city"
+                    className={focusedField === "city" ? "focused" : ""}
+                  >
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    onFocus={() => setFocusedField("city")}
+                    onBlur={() => setFocusedField(null)}
+                    className={formErrors.city ? "error" : ""}
+                  />
+                  {formErrors.city && (
+                    <div className="error-text slide-in">{formErrors.city}</div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label
+                    htmlFor="state"
+                    className={focusedField === "state" ? "focused" : ""}
+                  >
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    onFocus={() => setFocusedField("state")}
+                    onBlur={() => setFocusedField(null)}
+                    className={formErrors.state ? "error" : ""}
+                  />
+                  {formErrors.state && (
+                    <div className="error-text slide-in">
+                      {formErrors.state}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label
+                    htmlFor="zipCode"
+                    className={focusedField === "zipCode" ? "focused" : ""}
+                  >
+                    ZIP Code
+                  </label>
+                  <input
+                    type="text"
+                    id="zipCode"
+                    name="zipCode"
+                    value={formData.zipCode}
+                    onChange={handleInputChange}
+                    onFocus={() => setFocusedField("zipCode")}
+                    onBlur={() => setFocusedField(null)}
+                    className={formErrors.zipCode ? "error" : ""}
+                  />
+                  {formErrors.zipCode && (
+                    <div className="error-text slide-in">
+                      {formErrors.zipCode}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <h2>
+                <span className="section-number">3</span>
+                Payment Information
+              </h2>
+
               <div className="form-group">
-                <label htmlFor="cvv">CVV</label>
+                <label
+                  htmlFor="cardNumber"
+                  className={focusedField === "cardNumber" ? "focused" : ""}
+                >
+                  Card Number
+                </label>
                 <input
                   type="text"
-                  id="cvv"
-                  name="cvv"
-                  value={formData.cvv}
+                  id="cardNumber"
+                  name="cardNumber"
+                  value={formData.cardNumber}
                   onChange={handleInputChange}
-                  placeholder="123"
-                  className={formErrors.cvv ? "error" : ""}
+                  onFocus={() => setFocusedField("cardNumber")}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="1234 5678 9012 3456"
+                  className={formErrors.cardNumber ? "error" : ""}
+                  maxLength="19"
                 />
-                {formErrors.cvv && (
-                  <div className="error-text">{formErrors.cvv}</div>
+                {formErrors.cardNumber && (
+                  <div className="error-text slide-in">
+                    {formErrors.cardNumber}
+                  </div>
                 )}
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label
+                    htmlFor="expiryDate"
+                    className={focusedField === "expiryDate" ? "focused" : ""}
+                  >
+                    Expiry Date
+                  </label>
+                  <input
+                    type="text"
+                    id="expiryDate"
+                    name="expiryDate"
+                    value={formData.expiryDate}
+                    onChange={handleInputChange}
+                    onFocus={() => setFocusedField("expiryDate")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="MM/YY"
+                    className={formErrors.expiryDate ? "error" : ""}
+                    maxLength="5"
+                  />
+                  {formErrors.expiryDate && (
+                    <div className="error-text slide-in">
+                      {formErrors.expiryDate}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label
+                    htmlFor="cvv"
+                    className={focusedField === "cvv" ? "focused" : ""}
+                  >
+                    CVV
+                  </label>
+                  <input
+                    type="text"
+                    id="cvv"
+                    name="cvv"
+                    value={formData.cvv}
+                    onChange={handleInputChange}
+                    onFocus={() => setFocusedField("cvv")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="123"
+                    className={formErrors.cvv ? "error" : ""}
+                    maxLength="3"
+                  />
+                  {formErrors.cvv && (
+                    <div className="error-text slide-in">{formErrors.cvv}</div>
+                  )}
+                </div>
               </div>
             </div>
 
             <button
               type="submit"
-              className="checkout-button"
+              className={`checkout-button ${loading ? "loading" : ""}`}
               disabled={loading}
             >
-              {loading ? "Processing..." : "Complete Purchase"}
+              {loading ? (
+                <>
+                  <div className="button-spinner"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <span>Complete Purchase</span>
+                  <span className="button-arrow">→</span>
+                </>
+              )}
             </button>
           </form>
         </div>
 
         <div className="order-summary">
-          <h2>Order Summary</h2>
+          <div className="summary-header">
+            <h2>Order Summary</h2>
+          </div>
+
           <div className="product-summary">
             <div className="product-image">
-              <img src={cart.variant.image} alt={cart.product.title} />
+              <img
+                src={cart.variant.image || "/placeholder.svg"}
+                alt={cart.product.title}
+              />
             </div>
             <div className="product-info">
               <h3>{cart.product.title}</h3>
-              <p>Variant: {cart.variant.name}</p>
-              <p>Quantity: {cart.quantity}</p>
-              <p>Price: ${cart.variant.price}</p>
+              <p className="variant-info">Variant: {cart.variant.name}</p>
+              <p className="quantity-info">Quantity: {cart.quantity}</p>
+              <p className="price-info">${cart.variant.price}</p>
             </div>
           </div>
 
@@ -374,10 +532,19 @@ const CheckoutPage = () => {
               <span>Subtotal</span>
               <span>${subtotal.toFixed(2)}</span>
             </div>
+            <div className="price-row">
+              <span>Shipping</span>
+              <span>Free</span>
+            </div>
             <div className="price-row total">
               <span>Total</span>
               <span>${total.toFixed(2)}</span>
             </div>
+          </div>
+
+          <div className="security-info">
+            <div className="security-icon">🔒</div>
+            <p>Your payment information is secure and encrypted</p>
           </div>
         </div>
       </div>

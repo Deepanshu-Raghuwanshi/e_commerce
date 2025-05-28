@@ -11,7 +11,7 @@ const api = axios.create({
 
 export const getProducts = async () => {
   try {
-    const response = await api.get("/products");
+    const response = await api.get("/api/products");
     return response.data;
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -21,7 +21,7 @@ export const getProducts = async () => {
 
 export const getProductById = async (id) => {
   try {
-    const response = await api.get(`/products/${id}`);
+    const response = await api.get(`/api/products/${id}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching product with id ${id}:`, error);
@@ -31,7 +31,7 @@ export const getProductById = async (id) => {
 
 export const processCheckout = async (checkoutData) => {
   try {
-    const response = await api.post("/checkout", checkoutData);
+    const response = await api.post("/api/checkout", checkoutData);
     return response.data;
   } catch (error) {
     console.error("Error processing checkout:", error);
@@ -41,7 +41,7 @@ export const processCheckout = async (checkoutData) => {
 
 export const getOrderById = async (orderId) => {
   try {
-    const response = await api.get(`/orders/${orderId}`);
+    const response = await api.get(`/api/orders/${orderId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching order with id ${orderId}:`, error);
