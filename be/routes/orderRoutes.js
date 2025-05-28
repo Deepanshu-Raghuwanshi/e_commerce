@@ -169,8 +169,21 @@ router.post("/checkout", async (req, res) => {
       // Save order to database
       await newOrder.save();
 
-      // Send confirmation email
-      await sendOrderConfirmationEmail(newOrder);
+      // Send confirmation email but don't block the process if it fails
+      try {
+        const emailResult = await sendOrderConfirmationEmail(newOrder);
+        if (emailResult.error) {
+          console.log(
+            "Email sending failed but order was processed:",
+            emailResult.message
+          );
+        }
+      } catch (emailError) {
+        console.error(
+          "Error in email sending but order was processed:",
+          emailError
+        );
+      }
 
       // Return success response
       return res.status(201).json({
@@ -242,8 +255,18 @@ router.post("/checkout", async (req, res) => {
 
       await failedOrder.save();
 
-      // Send failure email
-      await sendOrderFailureEmail(customer, failureReason);
+      // Send failure email but don't block the process if it fails
+      try {
+        const emailResult = await sendOrderFailureEmail(
+          customer,
+          failureReason
+        );
+        if (emailResult.error) {
+          console.log("Failure email sending failed:", emailResult.message);
+        }
+      } catch (emailError) {
+        console.error("Error in failure email sending:", emailError);
+      }
 
       // Return appropriate error response
       return res.status(400).json({

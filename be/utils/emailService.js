@@ -4,14 +4,22 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Create a transporter using Mailtrap credentials
-const transporter = nodemailer.createTransport({
-  host: process.env.MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
-  port: process.env.MAILTRAP_PORT || 2525,
-  auth: {
-    user: process.env.MAILTRAP_USER,
-    pass: process.env.MAILTRAP_PASS,
-  },
-});
+const createTransporter = () => {
+  console.log("Creating email transporter with credentials:");
+  console.log(`Host: ${process.env.MAILTRAP_HOST}`);
+  console.log(`Port: ${process.env.MAILTRAP_PORT}`);
+  console.log(`User: ${process.env.MAILTRAP_USER ? "Set" : "Not set"}`);
+  console.log(`Pass: ${process.env.MAILTRAP_PASS ? "Set" : "Not set"}`);
+
+  return nodemailer.createTransport({
+    host: process.env.MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
+    port: parseInt(process.env.MAILTRAP_PORT || "2525"),
+    auth: {
+      user: process.env.MAILTRAP_USER,
+      pass: process.env.MAILTRAP_PASS,
+    },
+  });
+};
 
 // Function to send order confirmation email
 export const sendOrderConfirmationEmail = async (order) => {
@@ -82,12 +90,14 @@ export const sendOrderConfirmationEmail = async (order) => {
       `,
     };
 
+    const transporter = createTransporter();
     const info = await transporter.sendMail(mailOptions);
     console.log("Order confirmation email sent:", info.messageId);
     return info;
   } catch (error) {
     console.error("Error sending order confirmation email:", error);
-    throw error;
+    // Log the error but don't throw it to prevent blocking the checkout process
+    return { error: true, message: error.message };
   }
 };
 
@@ -123,11 +133,13 @@ export const sendOrderFailureEmail = async (customer, reason) => {
       `,
     };
 
+    const transporter = createTransporter();
     const info = await transporter.sendMail(mailOptions);
     console.log("Order failure email sent:", info.messageId);
     return info;
   } catch (error) {
     console.error("Error sending order failure email:", error);
-    throw error;
+    // Log the error but don't throw it to prevent blocking the checkout process
+    return { error: true, message: error.message };
   }
 };
