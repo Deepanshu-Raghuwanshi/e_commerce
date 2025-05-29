@@ -733,6 +733,7 @@ body {
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
+  max-width: fit-content;
 }
 
 .quantity-btn {
