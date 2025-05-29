@@ -235,6 +235,46 @@ Once both the frontend and backend are running, you can test the application by:
    - View your order details
    - Check the email (if using Mailtrap) for order confirmation
 
+## Performance Optimization
+
+The application includes several performance optimizations to improve Lighthouse scores. For detailed information about all performance optimizations, implementation details, and expected improvements, see the [PERFORMANCE.md](./PERFORMANCE.md) file.
+
+### Key Optimizations
+
+1. **Code Splitting with React.lazy and Suspense**
+
+   - All page components except the homepage are lazy-loaded
+   - Reduces initial bundle size and improves load time
+
+2. **Optimized HTML Structure**
+
+   - Meta tags for SEO
+   - Preconnect to API domain
+   - Inline critical CSS
+   - Fallback content for no-JS environments
+
+3. **Optimized Image Component**
+
+   - The `OptimizedImage` component (`src/components/OptimizedImage.jsx`) provides:
+     - Lazy loading
+     - WebP format with fallbacks
+     - Responsive images with srcset
+     - Blur-up loading effect
+
+4. **Virtualized Product List**
+
+   - The `VirtualizedProductList` component helps with rendering large product lists efficiently
+
+5. **Optimized Vite Configuration**
+   - Vendor chunk splitting for better caching
+   - Terser minification with console removal
+   - Optimized asset organization
+   - CSS code splitting and minification
+   - Manual chunk configuration for React and Redux
+   - Development proxy configuration
+
+See [PERFORMANCE.md](./PERFORMANCE.md) for implementation details and additional recommendations.
+
 ## Troubleshooting
 
 - **API Connection Issues**:
@@ -249,8 +289,14 @@ Once both the frontend and backend are running, you can test the application by:
   - Check for any version conflicts in package.json
 
 - **Routing Issues**:
+
   - Check that the React Router configuration matches your expected routes
   - Verify that the browser history mode is working correctly
+
+- **Performance Issues**:
+  - Run Lighthouse in Chrome DevTools to identify specific performance bottlenecks
+  - Check the Network tab to identify slow-loading resources
+  - Use the Performance tab to analyze JavaScript execution time
 
 ## License
 
