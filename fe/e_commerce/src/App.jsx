@@ -3,7 +3,7 @@ import { Provider } from "react-redux";
 import { ToastProvider } from "./components/ToastProvider.jsx";
 import { CartProvider } from "./context/CartContext";
 import store from "./store";
-import Navbar from "./components/navbar";
+import Navbar from "./components/Navbar";
 import ProductPage from "./pages/ProductPage";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
 import CheckoutPage from "./pages/CheckoutPage";
